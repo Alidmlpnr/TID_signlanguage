@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TİD ONNX Web</title>
+  <style>
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    font-family: system-ui, Arial;
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    color: #e2e8f0;
+  }
+
+  h2 {
+    text-align: center;
+    margin: 20px 0;
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: auto;
+    padding: 20px;
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  @media (max-width: 900px) {
+    .row {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .card {
+    background: rgba(255,255,255,0.05);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    padding: 16px;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+
+  video, canvas {
+    width: 100%;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.2);
+  }
+
+  .preview-box {
+    position: relative;
+  }
+
+  #flash {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,255,150,0.3);
+    opacity: 0;
+    pointer-events: none;
+    border-radius: 12px;
+  }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  button {
+    flex: 1;
+    padding: 10px;
+    border-radius: 10px;
+    border: none;
+    background: #334155;
+    color: white;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+
+  button:hover {
+    background: #475569;
+  }
+
+  button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .big {
+    font-size: 56px;
+    font-weight: 800;
+    text-align: center;
+    margin-top: 10px;
+  }
+
+  .confidence {
+    text-align: center;
+    opacity: 0.7;
+    margin-bottom: 10px;
+  }
+
+  textarea {
+    width: 100%;
+    height: 140px;
+    border-radius: 12px;
+    border: none;
+    padding: 12px;
+    font-size: 16px;
+    background: rgba(255,255,255,0.08);
+    color: white;
+    resize: none;
+  }
+
+  .label {
+    font-size: 14px;
+    opacity: 0.7;
+  }
+</style>
+
+  <!-- ONNX Runtime Web -->
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/ort.min.js"></script>
+
+  <!-- MediaPipe Hands -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.min.js"></script>
+</head>
+<body>
+  <h2>Türk İşaret Dili</h2>
+
+  <div class="container">
+  <div class="row">
+
+    <!-- SOL TARAF -->
+    <div class="card">
+      <div class="label">Kamera</div>
+      <video id="video" autoplay playsinline></video>
+
+      <div class="label" style="margin-top:10px;">İşlenen Görüntü</div>
+      <div class="preview-box">
+        <canvas id="whiteCanvas" width="300" height="300"></canvas>
+        <div id="flash"></div>
+      </div>
+    </div>
+
+    <!-- SAĞ TARAF -->
+    <div class="card">
+      <div class="label">Canlı Tahmin</div>
+      <div id="pred" class="big">-</div>
+      <div id="conf" class="confidence">conf: -</div>
+
+      <div class="label">Metin Çıktısı</div>
+      <textarea id="textOut" placeholder="Metin burada oluşacak..."></textarea>
+
+      <!-- BUTONLAR BURAYA TAŞINDI -->
+      <div class="controls" style="margin-top:15px;">
+        <button id="startBtn">Başlat</button>
+        <button id="stopBtn" disabled>Durdur</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/** =========================
+ * 0) Sabitler (Python ile aynı mantık)
+ * ========================= */
+const IMG_SIZE = 300;      // imgWhite
+const INPUT_SIZE = 224;    // model input
+
+// ImageNet normalize (train/val ile aynı)
+const MEAN = [0.485, 0.456, 0.406];
+const STD  = [0.229, 0.224, 0.225];
+
+// MediaPipe landmark index bağlantıları (senin HAND_CONNECTIONS)
+const HAND_CONNECTIONS = [
+  [0,1],[1,2],[2,3],[3,4],
+  [0,5],[5,6],[6,7],[7,8],
+  [0,9],[9,10],[10,11],[11,12],
+  [0,13],[13,14],[14,15],[15,16],
+  [0,17],[17,18],[18,19],[19,20],
+  [5,9],[9,13],[13,17]
+];
+
+/** =========================
+ * Auto-capture ayarları
+ * ========================= */
+const AUTO_CAPTURE = true;        // istersen false yap
+const CONF_THRESHOLD = 0.75;      // güven eşiği
+const STABLE_FRAMES = 8;          // kaç frame stabil olmalı
+const COOLDOWN_MS = 900;          // capture sonrası bekleme
+const REQUIRE_RESET = true;       // aynı harfi tekrar yazmak için önce reset gereksin
+
+let stableCount = 0;
+let stableLabel = "";
+let lastCaptureAt = 0;
+let requireReset = false;
+
+/** =========================
+ * 1) DOM
+ * ========================= */
+const video = document.getElementById("video");
+const whiteCanvas = document.getElementById("whiteCanvas");
+//const inputCanvas = document.getElementById("inputCanvas");
+const wctx = whiteCanvas.getContext("2d");
+//const ictx = inputCanvas.getContext("2d");
+
+const flashEl = document.getElementById("flash");
+
+const predEl = document.getElementById("pred");
+const confEl = document.getElementById("conf");
+const textOut = document.getElementById("textOut");
+
+const startBtn = document.getElementById("startBtn");
+const stopBtn  = document.getElementById("stopBtn");
+//const addBtn   = document.getElementById("addBtn");
+//const spaceBtn = document.getElementById("spaceBtn");
+//const backBtn  = document.getElementById("backBtn");
+
+let session = null;
+let classes = [];
+let camera = null;
+
+let lastLabel = "";
+let lastConf = 0;
+
+/** =========================
+ * Flash + append helpers
+ * ========================= */
+function flashCapture() {
+  // kısa “fotoğraf çekildi” hissi
+  flashEl.animate(
+    [{ opacity: 0 }, { opacity: 1 }, { opacity: 0 }],
+    { duration: 180, easing: "ease-out" }
+  );
+}
+
+function appendLetter(letter) {
+  if (!letter) return;
+  textOut.value += letter;
+}
+
+/** =========================
+ * 2) Model + classes yükle
+ * ========================= */
+async function loadModel() {
+  const txt = await (await fetch("./classes.txt")).text();
+  classes = txt.split("\n").map(s => s.trim()).filter(Boolean);
+
+  session = await ort.InferenceSession.create("./tid_mobilenetv3_3.onnx", {
+    executionProviders: ["wasm"],
+    graphOptimizationLevel: "all"
+  });
+
+  console.log("ONNX loaded. num classes:", classes.length);
+}
+
+/** =========================
+ * 3) Landmark -> bbox + letterbox param hesapla
+ * ========================= */
+function drawLandmarksOnWhiteCanvas(multiHandLandmarks, frameW, frameH) {
+  wctx.clearRect(0,0,IMG_SIZE,IMG_SIZE);
+  wctx.fillStyle = "white";
+  wctx.fillRect(0,0,IMG_SIZE,IMG_SIZE);
+
+  if (!multiHandLandmarks || multiHandLandmarks.length === 0) return null;
+
+  let pts = [];
+  for (const hand of multiHandLandmarks) {
+    for (const lm of hand) {
+      const x = lm.x * frameW;
+      const y = lm.y * frameH;
+      pts.push([x,y]);
+    }
+  }
+
+  const offset = 20;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const [x,y] of pts) {
+    minX = Math.min(minX, x); minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+  }
+  minX = Math.max(0, minX - offset);
+  minY = Math.max(0, minY - offset);
+  maxX = Math.min(frameW, maxX + offset);
+  maxY = Math.min(frameH, maxY + offset);
+
+  const bw = Math.max(1, maxX - minX);
+  const bh = Math.max(1, maxY - minY);
+
+  const aspect = bh / bw;
+
+  let scale, drawW, drawH, xGap, yGap;
+
+  if (aspect > 1) {
+    scale = IMG_SIZE / bh;
+    drawH = IMG_SIZE;
+    drawW = Math.ceil(bw * scale);
+    xGap = Math.ceil((IMG_SIZE - drawW) / 2);
+    yGap = 0;
+  } else {
+    scale = IMG_SIZE / bw;
+    drawW = IMG_SIZE;
+    drawH = Math.ceil(bh * scale);
+    xGap = 0;
+    yGap = Math.ceil((IMG_SIZE - drawH) / 2);
+  }
+
+  return { minX, minY, maxX, maxY, scale, drawW, drawH, xGap, yGap };
+}
+
+/** =========================
+ * 4) Frame -> imgWhite üret (Python ile uyumlu)
+ * ========================= */
+function buildWhiteImageFromFrameAndLandmarks(videoEl, multiHandLandmarks) {
+  const frameW = videoEl.videoWidth;
+  const frameH = videoEl.videoHeight;
+  if (!frameW || !frameH) return false;
+  if (!multiHandLandmarks || multiHandLandmarks.length === 0) return false;
+
+  const bboxInfo = drawLandmarksOnWhiteCanvas(multiHandLandmarks, frameW, frameH);
+  if (!bboxInfo) return false;
+
+  const { minX, minY, maxX, maxY, scale, drawW, drawH, xGap, yGap } = bboxInfo;
+
+  wctx.fillStyle = "white";
+  wctx.fillRect(0,0,IMG_SIZE,IMG_SIZE);
+
+  const sw = Math.max(1, maxX - minX);
+  const sh = Math.max(1, maxY - minY);
+  wctx.drawImage(videoEl, minX, minY, sw, sh, xGap, yGap, drawW, drawH);
+
+  wctx.lineWidth = 2;
+  wctx.strokeStyle = "white";
+  wctx.fillStyle = "red";
+
+  for (const hand of multiHandLandmarks) {
+    const px = hand.map(lm => [lm.x * frameW, lm.y * frameH]);
+
+    for (const [a,b] of HAND_CONNECTIONS) {
+      const [x1,y1] = px[a];
+      const [x2,y2] = px[b];
+      const wx1 = xGap + (x1 - minX) * scale;
+      const wy1 = yGap + (y1 - minY) * scale;
+      const wx2 = xGap + (x2 - minX) * scale;
+      const wy2 = yGap + (y2 - minY) * scale;
+
+      wctx.beginPath();
+      wctx.moveTo(wx1, wy1);
+      wctx.lineTo(wx2, wy2);
+      wctx.stroke();
+    }
+
+    for (const [x,y] of px) {
+      const wx = xGap + (x - minX) * scale;
+      const wy = yGap + (y - minY) * scale;
+      wctx.beginPath();
+      wctx.arc(wx, wy, 4, 0, Math.PI*2);
+      wctx.fill();
+    }
+  }
+
+  return true;
+}
+
+/** =========================
+ * 5) whiteCanvas -> 224x224 + normalize + ONNX
+ * ========================= */
+function canvasToNCHWFloat32(canvas) {
+  const tempCanvas = document.createElement("canvas");
+  tempCanvas.width = INPUT_SIZE;
+  tempCanvas.height = INPUT_SIZE;
+  const tctx = tempCanvas.getContext("2d");
+
+  tctx.drawImage(canvas, 0, 0, INPUT_SIZE, INPUT_SIZE);
+
+  const imgData = tctx.getImageData(0,0,INPUT_SIZE,INPUT_SIZE).data;
+
+  const H = INPUT_SIZE, W = INPUT_SIZE;
+
+  const out = new Float32Array(1 * 3 * H * W);
+
+  for (let y=0; y<H; y++) {
+    for (let x=0; x<W; x++) {
+      const i = (y*W + x) * 4;
+      const r = imgData[i]   / 255;
+      const g = imgData[i+1] / 255;
+      const b = imgData[i+2] / 255;
+
+      const base = y*W + x;
+      out[0*H*W + base] = (r - MEAN[0]) / STD[0];
+      out[1*H*W + base] = (g - MEAN[1]) / STD[1];
+      out[2*H*W + base] = (b - MEAN[2]) / STD[2];
+    }
+  }
+  return out;
+}
+
+function argmaxWithSoftmax(logits) {
+  let max = -Infinity;
+  for (let i=0;i<logits.length;i++) max = Math.max(max, logits[i]);
+  let sum = 0;
+  const exps = new Float32Array(logits.length);
+  for (let i=0;i<logits.length;i++) {
+    const e = Math.exp(logits[i] - max);
+    exps[i] = e;
+    sum += e;
+  }
+  let bestI = 0;
+  let bestP = 0;
+  for (let i=0;i<exps.length;i++) {
+    const p = exps[i] / sum;
+    if (p > bestP) { bestP = p; bestI = i; }
+  }
+  return { index: bestI, conf: bestP };
+}
+
+/** =========================
+ * Auto-capture logic
+ * ========================= */
+function autoCaptureStep(label, conf) {
+  if (!AUTO_CAPTURE) return;
+
+  const now = Date.now();
+
+  // cooldown
+  if ((now - lastCaptureAt) < COOLDOWN_MS) return;
+
+  // reset şartı (aynı harfi tekrar yazmak için önce el değişsin)
+  if (REQUIRE_RESET && requireReset) {
+    // reset koşulu: ya conf düşsün ya da label değişsin
+    if (!label || conf < CONF_THRESHOLD || label !== stableLabel) {
+      requireReset = false;
+      stableCount = 0;
+      stableLabel = "";
+    }
+    return;
+  }
+
+  // eşik altı -> stabilize sayma
+  if (!label || conf < CONF_THRESHOLD) {
+    stableCount = 0;
+    stableLabel = "";
+    return;
+  }
+
+  if (label === stableLabel) {
+    stableCount += 1;
+  } else {
+    stableLabel = label;
+    stableCount = 1;
+  }
+
+  if (stableCount >= STABLE_FRAMES) {
+  flashCapture();
+  
+  const label = stableLabel.trim().toLowerCase();
+  // 🔥 BURASI DEĞİŞTİ
+  if (stableLabel === "space") {
+    textOut.value += " ";
+  } else if (stableLabel === "delete") {
+    textOut.value = textOut.value.slice(0, -1);
+  } else {
+    appendLetter(stableLabel);
+  }
+
+  lastCaptureAt = now;
+  stableCount = 0;
+
+  if (REQUIRE_RESET) {
+    requireReset = true;
+  }
+}
+}
+
+/** =========================
+ * 6) MediaPipe Hands + döngü
+ * ========================= */
+let hands = null;
+
+async function start() {
+  await loadModel();
+
+  hands = new Hands({
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+  });
+
+  hands.setOptions({
+    maxNumHands: 2,
+    modelComplexity: 1,
+    minDetectionConfidence: 0.6,
+    minTrackingConfidence: 0.6
+  });
+
+  hands.onResults(async (results) => {
+    const landmarks = results.multiHandLandmarks;
+
+    if (!landmarks || landmarks.length === 0) {
+      predEl.textContent = "-";
+      confEl.textContent = "conf: -";
+      lastLabel = ""; lastConf = 0;
+
+      // auto-capture state reset
+      stableCount = 0;
+      stableLabel = "";
+      if (REQUIRE_RESET) requireReset = false;
+
+      return;
+    }
+
+    const ok = buildWhiteImageFromFrameAndLandmarks(video, landmarks);
+    if (!ok) return;
+
+    const inputData = canvasToNCHWFloat32(whiteCanvas);
+    const tensor = new ort.Tensor("float32", inputData, [1, 3, INPUT_SIZE, INPUT_SIZE]);
+
+    const outputs = await session.run({ input: tensor });
+    const logits = outputs.logits.data;
+
+    const { index, conf } = argmaxWithSoftmax(logits);
+
+    lastLabel = classes[index] ?? "";
+    lastConf = conf;
+
+    predEl.textContent = lastLabel || "-";
+    confEl.textContent = `conf: ${lastConf.toFixed(2)}`;
+
+    // ✅ otomatik yazma
+    autoCaptureStep(lastLabel, lastConf);
+  });
+
+  camera = new Camera(video, {
+    onFrame: async () => {
+      await hands.send({ image: video });
+    },
+    width: 480,
+    height: 360
+  });
+
+  camera.start();
+
+  startBtn.disabled = true;
+  stopBtn.disabled = false;
+  
+}
+
+function stop() {
+  if (camera) {
+    camera.stop();
+    camera = null;
+  }
+  hands = null;
+
+  startBtn.disabled = false;
+  stopBtn.disabled = true;
+  
+
+  predEl.textContent = "-";
+  confEl.textContent = "conf: -";
+  lastLabel = ""; lastConf = 0;
+
+  // auto state reset
+  stableCount = 0;
+  stableLabel = "";
+  lastCaptureAt = 0;
+  requireReset = false;
+}
+
+
+
+startBtn.onclick = start;
+stopBtn.onclick = stop;
+</script>
+</body>
+</html>
