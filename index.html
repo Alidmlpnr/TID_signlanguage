@@ -118,6 +118,50 @@
     resize: none;
   }
 
+    /* Help button */
+.help-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: none;
+  background: #4f46e5;
+  color: white;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+/* Modal */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 999;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.6);
+}
+
+/* Modal content */
+.modal-content {
+  background: #111827;
+  color: white;
+  margin: 5% auto;
+  padding: 25px;
+  border-radius: 16px;
+  width: 90%;
+  max-width: 600px;
+}
+
+/* Close button */
+.close {
+  float: right;
+  font-size: 24px;
+  cursor: pointer;
+}
+
   .label {
     font-size: 14px;
     opacity: 0.7;
@@ -532,7 +576,7 @@ async function start() {
     predEl.textContent = lastLabel || "-";
     confEl.textContent = `conf: ${lastConf.toFixed(2)}`;
 
-    // ✅ otomatik yazma
+    //  otomatik yazma
     autoCaptureStep(lastLabel, lastConf);
   });
 
@@ -577,6 +621,72 @@ function stop() {
 
 startBtn.onclick = start;
 stopBtn.onclick = stop;
+
+
+
+                                                        //yardım uygulaması:
+  const helpBtn = document.getElementById("helpBtn");
+const helpModal = document.getElementById("helpModal");
+const closeHelp = document.getElementById("closeHelp");
+
+// Aç
+helpBtn.onclick = () => {
+  helpModal.style.display = "block";
+};
+
+// Kapat
+closeHelp.onclick = () => {
+  helpModal.style.display = "none";
+};
+
+// Dışına tıklayınca kapat
+window.onclick = (e) => {
+  if (e.target === helpModal) {
+    helpModal.style.display = "none";
+  }
+};
+
+// ESC ile kapat
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    helpModal.style.display = "none";
+  }
+});
+
+  
 </script>
+
+
+  <div id="helpModal" class="modal">
+  <div class="modal-content">
+    <span id="closeHelp" class="close">&times;</span>
+    
+    <h2> Kullanım Kılavuzu</h2>
+
+    <h3> Kamera Kullanımı</h3>
+    <p>Başlat butonuna bastığınızda kamera açılır. Tarayıcı sizden izin ister, izin vermelisiniz.</p>
+
+    <h3> İşaret Algılama</h3>
+    <p>Elinizi kameraya gösterin. Sistem harfi otomatik algılar.</p>
+
+    <h3> Metin Yazımı</h3>
+    <ul>
+      <li>Harfler otomatik yazılır</li>
+      <li><b>space</b> → boşluk bırakır</li>
+      <li><b>delete</b> → son harfi siler</li>
+    </ul>
+
+    <h3> İpuçları</h3>
+    <ul>
+      <li>Eliniz net görünmeli</li>
+      <li>Işık iyi olmalı</li>
+      <li>Arka plan sade olmalı</li>
+    </ul>
+
+  </div>
+</div>
+
+
+  
 </body>
 </html>
