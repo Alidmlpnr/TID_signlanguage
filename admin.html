@@ -1,0 +1,114 @@
+<!doctype html>
+
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Admin Panel</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body {
+  font-family: Arial;
+  background: #0f172a;
+  color: white;
+  margin: 20px;
+}
+
+.card {
+  background: #111827;
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+
+input, button {
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  margin-top: 10px;
+}
+
+button {
+  cursor: pointer;
+  background: #4f46e5;
+  color: white;
+}
+
+.hidden {
+  display: none;
+}
+</style>
+
+</head>
+
+<body>
+
+<h1> Yönetim Paneli</h1>
+
+<!-- LOGIN -->
+
+<div id="loginBox" class="card">
+  <h2>Giriş</h2>
+  <input type="text" id="username" placeholder="Kullanıcı adı"><br>
+  <input type="password" id="password" placeholder="Şifre"><br>
+  <button onclick="login()">Giriş Yap</button>
+  <p id="loginError" style="color:red;"></p>
+</div>
+
+<!-- PANEL -->
+
+<div id="panel" class="hidden">
+
+  <div class="card">
+    <h2> Kullanım Geçmişi</h2>
+    <ul id="logs"></ul>
+  </div>
+
+  <div class="card">
+    <h2> İşlemler</h2>
+    <button onclick="clearLogs()">Tüm Veriyi Sil</button>
+  </div>
+
+</div>
+
+<script>
+// basit kullanıcı bilgisi
+const ADMIN_USER = "admin";
+const ADMIN_PASS = "1234";
+
+// login
+function login() {
+  const user = document.getElementById("username").value;
+  const pass = document.getElementById("password").value;
+
+  if (user === ADMIN_USER && pass === ADMIN_PASS) {
+    document.getElementById("loginBox").style.display = "none";
+    document.getElementById("panel").classList.remove("hidden");
+    loadLogs();
+  } else {
+    document.getElementById("loginError").textContent = "Hatalı giriş!";
+  }
+}
+
+// logları yükle
+function loadLogs() {
+  const logs = JSON.parse(localStorage.getItem("tid_logs") || "[]");
+  const list = document.getElementById("logs");
+  list.innerHTML = "";
+
+  logs.forEach(log => {
+    const li = document.createElement("li");
+    li.textContent = log;
+    list.appendChild(li);
+  });
+}
+
+// sil
+function clearLogs() {
+  localStorage.removeItem("tid_logs");
+  loadLogs();
+}
+</script>
+
+</body>
+</html>
