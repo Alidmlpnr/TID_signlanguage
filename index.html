@@ -686,7 +686,12 @@ document.addEventListener("keydown", (e) => {
     helpModal.style.display = "none";
   }
 });
-
+document.addEventListener("keydown", (e) => {
+  if (e.key === "F1") {
+    e.preventDefault(); // tarayıcının default help'ini engeller
+    helpModal.style.display = "block";
+  }
+});
   
 </script>
 
