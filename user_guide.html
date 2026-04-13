@@ -1,0 +1,144 @@
+<!doctype html>
+
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <title>TİD → Metin | Kullanıcı Kılavuzu</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      margin: 30px;
+      background: #0f172a;
+      color: #e5e7eb;
+    }
+
+    h1, h2, h3 {
+      color: #60a5fa;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: auto;
+    }
+
+    .card {
+      background: #111827;
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+    }
+
+    ul {
+      padding-left: 20px;
+    }
+
+    .tip {
+      background: #1e293b;
+      padding: 10px;
+      border-left: 4px solid #38bdf8;
+      margin-top: 10px;
+      border-radius: 6px;
+    }
+
+    .warning {
+      background: #3f1d1d;
+      padding: 10px;
+      border-left: 4px solid #ef4444;
+      margin-top: 10px;
+      border-radius: 6px;
+    }
+  </style>
+
+</head>
+
+<body>
+<div class="container">
+
+  <h1> Türk İşaret Dili → Metin Dönüştürücü</h1>
+
+  <div class="card">
+    <h2> Proje Hakkında</h2>
+    <p>
+      Bu uygulama, kamera üzerinden alınan görüntülerdeki Türk İşaret Dili (TİD)
+      el hareketlerini analiz ederek gerçek zamanlı olarak metne dönüştürür.
+    </p>
+    <p>
+      Sistem, derin öğrenme modeli ve görüntü işleme teknikleri kullanılarak geliştirilmiştir.
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>🎥 Uygulama Nasıl Kullanılır?</h2>
+    <ul>
+      <li><b>Başlat</b> butonuna tıklayın</li>
+      <li>Kamera erişimine izin verin</li>
+      <li>Elinizi kameraya gösterin</li>
+      <li>Sistem harfi otomatik olarak algılar</li>
+      <li>Algılanan harfler metin alanına eklenir</li>
+    </ul>
+
+```
+<div class="tip">
+   Harflerin doğru algılanması için eliniz net görünmelidir.
+</div>
+```
+
+  </div>
+
+  <div class="card">
+    <h2> İşaret Algılama Sistemi</h2>
+    <p>
+      Sistem, el landmark (eklem noktaları) kullanarak işaretleri analiz eder.
+      Hem tek el hem de iki el ile yapılan işaretler desteklenmektedir.
+    </p>
+  </div>
+
+  <div class="card">
+    <h2> Metin Oluşturma</h2>
+    <ul>
+      <li><b>Harfler:</b> Otomatik eklenir</li>
+      <li><b>space:</b> Boşluk bırakır</li>
+      <li><b>delete:</b> Son karakteri siler</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2> Sistem Gereksinimleri</h2>
+    <ul>
+      <li>Kamera (webcam)</li>
+      <li>Modern web tarayıcı (Chrome önerilir)</li>
+      <li>İnternet bağlantısı</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2> Dikkat Edilmesi Gerekenler</h2>
+    <ul>
+      <li>Işık ortamı yeterli olmalıdır</li>
+      <li>Arka plan sade olmalıdır</li>
+      <li>El kadraj dışına çıkmamalıdır</li>
+    </ul>
+
+```
+<div class="warning">
+   Düşük ışık veya karmaşık arka plan doğruluğu düşürebilir.
+</div>
+```
+
+  </div>
+
+  <div class="card">
+    <h2> Teknik Bilgi</h2>
+    <ul>
+      <li>Model: MobileNetV3 (ONNX)</li>
+      <li>Görüntü işleme: MediaPipe Hands</li>
+      <li>Çalışma: Tarayıcı (client-side)</li>
+    </ul>
+  </div>
+
+</div>
+</body>
+</html>
