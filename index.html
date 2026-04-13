@@ -248,9 +248,17 @@
 </div>
 
 
+
+
+//admin paneli
+  <a href="admin.html" target="_blank"> Admin Panel</a>
+
+  
+
   
 
 <script>
+  
 /** =========================
  * 0) Sabitler (Python ile aynı mantık)
  * ========================= */
@@ -508,6 +516,15 @@ function argmaxWithSoftmax(logits) {
  * Auto-capture logic
  * ========================= */
 function autoCaptureStep(label, conf) {
+
+  function saveLog(text) {
+  let logs = JSON.parse(localStorage.getItem("tid_logs") || "[]");
+  logs.push(new Date().toLocaleString() + " → " + text);
+  localStorage.setItem("tid_logs", JSON.stringify(logs));
+}
+
+
+  
   if (!AUTO_CAPTURE) return;
 
   const now = Date.now();
@@ -541,6 +558,10 @@ function autoCaptureStep(label, conf) {
   }
 
   if (stableCount >= STABLE_FRAMES) {
+
+      saveLog(textOut.value);
+
+    
   flashCapture();
   
   const label = stableLabel.trim().toLowerCase();
