@@ -344,7 +344,7 @@ async function loadModel() {
   const txt = await (await fetch("./classes.txt")).text();
   classes = txt.split("\n").map(s => s.trim()).filter(Boolean);
 
-  session = await ort.InferenceSession.create("./tid_mobilenetv3_3.onnx", {
+  session = await ort.InferenceSession.create("./tid_mobilenetv3_4.onnx", {
     executionProviders: ["wasm"],
     graphOptimizationLevel: "all"
   });
