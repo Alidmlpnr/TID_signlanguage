@@ -52,6 +52,16 @@ button:hover {
 .hidden {
   display: none;
 }
+  .form-box {
+  max-width: 350px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.form-box input {
+  width: 100%;
+}
 </style>
 
 </head>
@@ -64,9 +74,11 @@ button:hover {
 
 <div id="loginBox" class="card">
   <h2>Giriş</h2>
-  <input type="text" id="username" placeholder="Kullanıcı adı"><br>
-  <input type="password" id="password" placeholder="Şifre"><br>
-  <button onclick="login()">Giriş Yap</button>
+ <div class="form-box">
+    <input type="text" id="username" placeholder="Kullanıcı adı">
+    <input type="password" id="password" placeholder="Şifre">
+    <button onclick="login()">Giriş Yap</button>
+  </div>
   <p id="loginError" style="color:red;"></p>
 </div>
 
